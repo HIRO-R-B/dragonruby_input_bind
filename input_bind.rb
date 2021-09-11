@@ -1,14 +1,13 @@
 ## Input handling made easier! Maybe
 #
 class InputBind
-  attr_accessor :tree, :tree_or, :or_seqs
+  attr_accessor :tree, :tree_or, :or_seqs, :binds, :block
 
   def initialize args, &block
     assign args
     @tree    = {}
     @tree_or = {}
     @or_seqs = []
-
     @binds   = {}
     @block   = {}
     @values  = {}
