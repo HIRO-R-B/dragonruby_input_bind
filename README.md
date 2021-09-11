@@ -22,4 +22,4 @@ def tick args
 end
 
 ```
-Checkout/run [main.rb](app/main.rb) for a better working example
+Checkout/run [main.rb](app/main.rb) for the actual working example
