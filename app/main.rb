@@ -5,12 +5,13 @@ require 'input_bind.rb'
 def boot args
   # Don't actually serialize it...
   args.state.inpt = InputBind.new args do
-    bind :jump,         [:space]
-    bind :left_right,   [:left_right], :kb { |v| v == 0 ? nil : v }
-    bind :stomp,        [:|, :s, :down, :j] # (:|) The 'or' op. Any one of these keys will stomp!
-    bind :rocket,       [:|, :k, :space], :kh { |v| v && v.elapsed?(0.4.seconds) }
-
+    bind :jump,         [:|, :space, [:c1d, :a]]
+    bind :left_right,   [:left_right], :inp { |v| v == 0 ? nil : v }
+    bind :stomp,        [:|, :s, :down, :j, [:c1d, :x], [:c1d, :down]] # (:|) The 'or' op. Any one of these keys will stomp!
+    bind :rocket,       [:|, :k, :space, [:c1h, :a], [:c1h, :r1]], :kh { |v| v && v.elapsed?(0.4.seconds) }
     bind :good_morning, [:q, :e, :space], :kh # Keep in mind, [:space, :q, :e] would break, since you have an action bound to space
+    bind :good_morning, [:l2, :r2, :a], :c1h # Apparently Multi bindings work, lol
+                                             #   Use with caution
     bind(:useless,      [:space]) { |v| v && v.zmod?(15) } # But this is ok though
   end
 end

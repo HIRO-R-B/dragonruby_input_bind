@@ -27,12 +27,20 @@ class InputBind
 
   def assign args
     @args = args
-    @inputs = args.inputs
-    @kb = @inputs.keyboard
-    @kd = @kb.key_down
-    @kh = @kb.key_held
-    @ku = @kb.key_up
-    @ms = @inputs.mouse
+    @inp = args.inputs
+    @kb  = @inp.keyboard
+    @kd  = @kb.key_down
+    @kh  = @kb.key_held
+    @ku  = @kb.key_up
+    @ms  = @inp.mouse
+    @c1  = @inp.controller_one
+    @c2  = @inp.controller_two
+    @c1d = @c1.key_down
+    @c1h = @c1.key_held
+    @c1u = @c1.key_up
+    @c2d = @c2.key_down
+    @c2h = @c2.key_held
+    @c2u = @c2.key_up
   end
 
   def input src, key
@@ -43,16 +51,34 @@ class InputBind
       end
 
       nil
+    elsif src == :inp
+      @inp.send key
     elsif src == :kd
       @kd.send key
     elsif src == :kh
       @kh.send key
     elsif src == :ku
       @ku.send key
-    elsif src == :ms
-      @ms.send key
     elsif src == :kb
       @kb.send key
+    elsif src == :ms
+      @ms.send key
+    elsif src == :c1
+      @c1.send key
+    elsif src == :c1d
+      @c1d.send key
+    elsif src == :c1h
+      @c1h.send key
+    elsif src == :c1u
+      @c1u.send key
+    elsif src == :c2
+      @c2.send key
+    elsif src == :c2d
+      @c2d.send key
+    elsif src == :c2h
+      @c2h.send key
+    elsif src == :c2u
+      @c2u.send key
     end
   end
 
@@ -107,33 +133,49 @@ class InputBind
   end
 
   def src? tok
-    ( tok == :kd || # key_down
-      tok == :kh || # key_held
-      tok == :ku || # key_up
-      tok == :ms || # mouse
-      tok == :c1 || # controller 1
-      tok == :c2 || # controller 2
-      tok == :kb )  # keyboard
+    ( tok == :inp || # inputs
+      tok == :kd  || # key_down
+      tok == :kh  || # key_held
+      tok == :ku  || # key_up
+      tok == :kb  || # keyboard
+      tok == :ms  || # mouse
+      tok == :c1  || # controller one
+      tok == :c1d || # controller_one.key_down
+      tok == :c1h || # controller_one.key_held
+      tok == :c1u || # controller_one.key_up
+      tok == :c2  || # controller_two
+      tok == :c2d || # controller_two.key_down
+      tok == :c2h || # controller_two.key_held
+      tok == :c2u )  # controller_two.key_up
   end
 
-  def parse_binds binds, default, depth = 0
-    case binds
-    when Array
-      binds = binds.map do |bind|
-        if src? bind
-          default = bind
-          next
-        end
-        parse_binds bind, default, depth + 1
-      end.compact
-      binds.unshift (:&) if !(seq? binds[0])
-      binds = [:&, binds] if depth == 0 && !(:& == binds[0])
-      binds
-    when -> tok { seq? tok }
-      binds
-    else
-      [default, binds]
-    end
+  def valid_seq? tok
+    (seq? tok[0]) || (seq? tok[1])
+  end
+
+  def parse_seq bind, default
+    bind.map do |tok|
+      if src? tok
+        default = tok
+        next
+      end
+      next tok if seq? tok
+      case tok
+      when Array
+        next parse_seq tok, default if valid_seq? tok
+
+        tok
+      when Symbol
+        [default, tok]
+      end
+    end.compact
+  end
+
+  def parse_binds binds, default
+    binds = parse_seq binds, default
+    binds.unshift (:&) if !(seq? binds[0])
+    binds = [:&, binds] if !(:& == binds[0])
+    binds
   end
 
   def bind name, binds, default = :kd, tree: @tree, &block
