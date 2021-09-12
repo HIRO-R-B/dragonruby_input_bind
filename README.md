@@ -11,6 +11,20 @@ def boot args
     bind :good_morning, [:l2, :r2, :a], :c1h # Apparently Multi bindings work, lol
                                              #   Use with caution
     bind(:useless,      [:space]) { |v| v && v.zmod?(15) } # But this is ok though
+    
+    # bind_or groups let only one of the bindings at a time be active
+    #   with priority being in the order they were binded
+    group {
+      bind_or :apple,  [:i], :kh
+      bind_or :banana, [:o], :kh
+      bind_or :carrot, [:p], :kh
+    }
+
+    group {
+      bind_or :one,    [:t], :kh
+      bind_or :two,    [:y], :kh
+      bind_or :three,  [:u], :kh
+    }
   end
 end
 

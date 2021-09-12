@@ -13,6 +13,20 @@ def boot args
     bind :good_morning, [:l2, :r2, :a], :c1h # Apparently Multi bindings work, lol
                                              #   Use with caution
     bind(:useless,      [:space]) { |v| v && v.zmod?(15) } # But this is ok though
+
+    # bind_or groups let only one of the bindings at a time be active
+    #   with priority being in the order they were binded
+    group {
+      bind_or :apple,  [:i], :kh
+      bind_or :banana, [:o], :kh
+      bind_or :carrot, [:p], :kh
+    }
+
+    group {
+      bind_or :one,    [:t], :kh
+      bind_or :two,    [:y], :kh
+      bind_or :three,  [:u], :kh
+    }
   end
 end
 
@@ -38,9 +52,10 @@ def tick args
   stars_move   state if inpt.good_morning
 
   args.outputs.background_color = [0, 0, 0]
-  box_draw args
-  useless_draw args
-  stars_draw args
+  box_draw      args
+  useless_draw  args
+  stars_draw    args
+  or_binds_draw args, inpt
 end
 
 def box_left_right state, left_right
@@ -102,4 +117,13 @@ end
 
 def stars_draw args
   args.outputs.solids << args.state.stars
+end
+
+def or_binds_draw args, inpt
+  args.outputs.labels << [0, 720, " apple: #{inpt.apple}", 255, 0, 0]
+  args.outputs.labels << [0, 700, "banana: #{inpt.banana}", 255, 0, 0]
+  args.outputs.labels << [0, 680, "carrot: #{inpt.carrot}", 255, 0, 0]
+  args.outputs.labels << [0, 660, "   one: #{inpt.one}", 255, 0, 0]
+  args.outputs.labels << [0, 640, "   two: #{inpt.two}", 255, 0, 0]
+  args.outputs.labels << [0, 620, " three: #{inpt.three}", 255, 0, 0]
 end

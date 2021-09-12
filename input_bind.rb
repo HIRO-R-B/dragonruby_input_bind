@@ -1,16 +1,54 @@
 ## Input handling made easier! Maybe
 #
 class InputBind
-  attr_accessor :tree, :tree_or, :or_seqs, :binds, :block
+  attr_accessor :groups, :groups_or, :or_seqs, :binds, :blocks
 
   def initialize args, &block
     assign args
-    @tree    = {}
-    @tree_or = {}
+
+    @group     = 0
+    @groups    = {}
+    @groups_or = {}
+
     @or_seqs = []
     @binds   = {}
-    @block   = {}
+    @blocks  = {}
     @values  = {}
+
+    @src_table = {
+      inp: true, # inputs
+      kd:  true, # key_down
+      kh:  true, # key_held
+      ku:  true, # key_up
+      kb:  true, # keyboard
+      ms:  true, # mouse
+      c1:  true, # controller one
+      c1d: true, # controller_one.key_down
+      c1h: true, # controller_one.key_held
+      c1u: true, # controller_one.key_up
+      c2:  true, # controller_two
+      c2d: true, # controller_two.key_down
+      c2h: true, # controller_two.key_held
+      c2u: true  # controller_two.key_up
+    }
+
+    @src_lookup = {
+      seq: -> key { check_seq key },
+      inp: -> key { @inp.send key },
+      kd:  -> key { @kd.send key },
+      kh:  -> key { @kh.send key },
+      ku:  -> key { @ku.send key },
+      kb:  -> key { @kb.send key },
+      ms:  -> key { @ms.send key },
+      c1:  -> key { @c1.send key },
+      c1d: -> key { @c1d.send key },
+      c1h: -> key { @c1h.send key },
+      c1u: -> key { @c1u.send key },
+      c2:  -> key { @c2.send key },
+      c2d: -> key { @c2d.send key },
+      c2h: -> key { @c2h.send key },
+      c2u: -> key { @c2u.send key }
+    }
 
     self.instance_eval &block if block
     self
@@ -20,73 +58,50 @@ class InputBind
     assign args
     @values = {}
 
-    check @tree
-    check @tree_or
+    @groups.each { |_, tree| check tree }
+    @groups_or.each { |_, tree| check_or tree }
   end
 
   def assign args
     @args = args
-    @inp = args.inputs
-    @kb  = @inp.keyboard
-    @kd  = @kb.key_down
-    @kh  = @kb.key_held
-    @ku  = @kb.key_up
-    @ms  = @inp.mouse
-    @c1  = @inp.controller_one
-    @c2  = @inp.controller_two
-    @c1d = @c1.key_down
-    @c1h = @c1.key_held
-    @c1u = @c1.key_up
-    @c2d = @c2.key_down
-    @c2h = @c2.key_held
-    @c2u = @c2.key_up
+    @inp  = args.inputs
+    @kb   = @inp.keyboard
+    @kd   = @kb.key_down
+    @kh   = @kb.key_held
+    @ku   = @kb.key_up
+    @ms   = @inp.mouse
+    @c1   = @inp.controller_one
+    @c2   = @inp.controller_two
+    @c1d  = @c1.key_down
+    @c1h  = @c1.key_held
+    @c1u  = @c1.key_up
+    @c2d  = @c2.key_down
+    @c2h  = @c2.key_held
+    @c2u  = @c2.key_up
   end
 
   def input src, key
-    if    src == :seq
-      @or_seqs[key].each do |s, k|
-        val = input s, k
-        return val if val
-      end
+    @src_lookup[src].call key
+  end
 
-      nil
-    elsif src == :inp
-      @inp.send key
-    elsif src == :kd
-      @kd.send key
-    elsif src == :kh
-      @kh.send key
-    elsif src == :ku
-      @ku.send key
-    elsif src == :kb
-      @kb.send key
-    elsif src == :ms
-      @ms.send key
-    elsif src == :c1
-      @c1.send key
-    elsif src == :c1d
-      @c1d.send key
-    elsif src == :c1h
-      @c1h.send key
-    elsif src == :c1u
-      @c1u.send key
-    elsif src == :c2
-      @c2.send key
-    elsif src == :c2d
-      @c2d.send key
-    elsif src == :c2h
-      @c2h.send key
-    elsif src == :c2u
-      @c2u.send key
+  def check_seq key
+    @or_seqs[key].each do |s, k|
+      val = input s, k
+      return val if val
     end
+
+    nil
   end
 
   def check tree
     tree.each do |(src, key), cdr|
       val = input src, key
-      cdr.is_a?(Array) && cdr.each do |name|
-        block = @block[name]
-        @values[name] = block ? (block.call val) : val
+      if cdr.is_a?(Array)
+        cdr.each do |name|
+          block = @blocks[name]
+          @values[name] = block ? (block.call val) : val
+        end
+        next
       end
       val && (check cdr)
     end
@@ -96,12 +111,17 @@ class InputBind
     tree.each do |(src, key), cdr|
       val = input src, key
       next if !val
-      (check_only cdr) && break if !cdr.is_a?(Array)
-      break cdr.each do |name|
-        block = @block[name]
-        @values[name] = block ? (block.call val) : val
+      if cdr.is_a?(Array)
+        cdr.each do |name|
+          block = @blocks[name]
+          @values[name] = block ? (block.call val) : val
+        end
+        break
       end
+      ((check_or cdr) && break)
     end
+
+    true
   end
 
   def insert_tree tree, or_seqs, name, binds
@@ -132,20 +152,7 @@ class InputBind
   end
 
   def src? tok
-    ( tok == :inp || # inputs
-      tok == :kd  || # key_down
-      tok == :kh  || # key_held
-      tok == :ku  || # key_up
-      tok == :kb  || # keyboard
-      tok == :ms  || # mouse
-      tok == :c1  || # controller one
-      tok == :c1d || # controller_one.key_down
-      tok == :c1h || # controller_one.key_held
-      tok == :c1u || # controller_one.key_up
-      tok == :c2  || # controller_two
-      tok == :c2d || # controller_two.key_down
-      tok == :c2h || # controller_two.key_held
-      tok == :c2u )  # controller_two.key_up
+    @src_table[tok]
   end
 
   def valid_seq? tok
@@ -177,20 +184,30 @@ class InputBind
     binds
   end
 
-  def bind name, binds, default = :kd, tree: @tree, &block
-    @binds[name] = binds
-    @block[name] = block
+  def group &block
+    @group += 1
+    raise "no block supplied" unless block
+    block.call
+  end
 
-    insert_tree tree, @or_seqs, name, (parse_binds binds, default)
+  def bind name, binds, default = :kd, &block
+    @binds[name] = binds
+    @blocks[name] = block
+    @groups[@group] ||= {}
+    insert_tree @groups[@group], @or_seqs, name, (parse_binds binds, default)
     define_singleton_method(name) { @values[name] }
   end
 
   def bind_or name, binds, default = :kd, &block
-    bind name, binds, default, tree: @tree_or, &block
+    @binds[name] = binds
+    @blocks[name] = block
+    @groups_or[@group] ||= {}
+    insert_tree @groups_or[@group], @or_seqs, name, (parse_binds binds, default)
+    define_singleton_method(name) { @values[name] }
   end
 end
 
-test = false
+test = true
 return unless test
 assert = -> name, a, b { raise "#{name} failed\na: #{a}\nb: #{b}" if a != b }
 inpt = InputBind.new $args
@@ -207,27 +224,32 @@ assert.call :parse_bind_3,
             (inpt.parse_binds [[:kh, :|, :shift, :n], [:|, :space, :z]], :kd),
             [:&, [:|, [:kh, :shift], [:kh, :n]], [:|, [:kd, :space], [:kd, :z]]]
 
-inpt.insert_tree inpt.tree, inpt.or_seqs, :jump, (inpt.parse_binds [:w, :space], :kh)
+assert.call :parse_bind_4,
+            (inpt.parse_binds [:|, :k, :space, [:c1h, :a], [:c1h, :r1]], :kh),
+            [:&, [:|, [:kh, :k], [:kh, :space], [:c1h, :a], [:c1h, :r1]]]
+
+tree = {}
+inpt.insert_tree tree, inpt.or_seqs, :jump, (inpt.parse_binds [:w, :space], :kh)
 assert.call :insert_tree_2,
-            inpt.tree,
+            tree,
             {[:kh, :w]=>{[:kh, :space]=>[:jump]}}
 
 assert.call :insert_tree_2_or_seq,
             inpt.or_seqs,
             []
 
-inpt.insert_tree inpt.tree, inpt.or_seqs, :or_man, (inpt.parse_binds [:|, :a, :b], :kd)
+inpt.insert_tree tree, inpt.or_seqs, :or_man, (inpt.parse_binds [:|, :a, :b], :kd)
 assert.call :insert_tree_2,
-            inpt.tree,
+            tree,
             {[:kh, :w]=>{[:kh, :space]=>[:jump]}, [:seq, 0]=>[:or_man]}
 
 assert.call :insert_tree_2_or_seq,
             inpt.or_seqs,
             [[[:kd, :a], [:kd, :b]]]
 
-inpt.insert_tree inpt.tree, inpt.or_seqs, :haaah, (inpt.parse_binds [[:kh, :|, :shift, :n], [:|, :space, :z]], :kd)
+inpt.insert_tree tree, inpt.or_seqs, :haaah, (inpt.parse_binds [[:kh, :|, :shift, :n], [:|, :space, :z]], :kd)
 assert.call :insert_tree_3,
-            inpt.tree,
+            tree,
             {[:kh, :w]=>{[:kh, :space]=>[:jump]}, [:seq, 0]=>[:or_man], [:seq, 1]=>{[:seq, 2]=>[:haaah]}}
 
 assert.call :insert_tree_3_or_seq,
