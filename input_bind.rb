@@ -1,20 +1,71 @@
 ##
 # Input handling made easier! Maybe
+#   NOTE:: This got complicated real fast...
 class InputBind
-  attr_accessor :groups, :groups_or, :or_seqs, :binds, :blocks
+  attr_accessor :trees, :trees_or, :groups, :or_seqs, :binds, :blocks
 
   def initialize args, file: nil, &block
     assign args
 
-    @group     = 0
-    @groups    = {}
-    @groups_or = {}
+    @group     = :default
+    @group_idx = 0
+    @groups   = {}
+    @trees    = {}
+    @trees_or = {}
 
     @or_seqs = []
+
     @binds   = {}
     @blocks  = {}
-    @values  = {}
+    @bind_group = {}
 
+    @values  = {}
+    @values_group = {}
+
+    create_tables
+
+    @invalid_names = methods(false)
+
+    # Use the binds in the file if there even is a file
+    #   Defaults to the block otherwise :)
+    if file
+      if binds = ($gtk.read_file file)
+        self.instance_eval binds
+        return
+      end
+    end
+
+    self.instance_eval &block if block
+  end
+
+  def tick args
+    assign args
+    @values = {}
+    @values_group = {}
+
+    @trees.each { |_, tree| check tree }
+    @trees_or.each { |_, tree| check_or tree }
+  end
+
+  def assign args
+    @args = args
+    @inp  = args.inputs
+    @kb   = @inp.keyboard
+    @kd   = @kb.key_down
+    @kh   = @kb.key_held
+    @ku   = @kb.key_up
+    @ms   = @inp.mouse
+    @c1   = @inp.controller_one
+    @c2   = @inp.controller_two
+    @c1d  = @c1.key_down
+    @c1h  = @c1.key_held
+    @c1u  = @c1.key_up
+    @c2d  = @c2.key_down
+    @c2h  = @c2.key_held
+    @c2u  = @c2.key_up
+  end
+
+  def create_tables
     @src_table = {
       inp: true, # inputs
       kd:  true, # key_down
@@ -49,45 +100,10 @@ class InputBind
       c2h: -> key { @c2h.send key },
       c2u: -> key { @c2u.send key }
     }
-
-    # Use the binds in the file if there even is a file
-    #   Defaults to the block otherwise :)
-    if file
-      binds = $gtk.read_file file
-      if binds
-        self.instance_eval binds
-        return self
-      end
-    end
-
-    self.instance_eval &block if block
-    self
   end
 
-  def tick args
-    assign args
-    @values = {}
-
-    @groups.each { |_, tree| check tree }
-    @groups_or.each { |_, tree| check_or tree }
-  end
-
-  def assign args
-    @args = args
-    @inp  = args.inputs
-    @kb   = @inp.keyboard
-    @kd   = @kb.key_down
-    @kh   = @kb.key_held
-    @ku   = @kb.key_up
-    @ms   = @inp.mouse
-    @c1   = @inp.controller_one
-    @c2   = @inp.controller_two
-    @c1d  = @c1.key_down
-    @c1h  = @c1.key_held
-    @c1u  = @c1.key_up
-    @c2d  = @c2.key_down
-    @c2h  = @c2.key_held
-    @c2u  = @c2.key_up
+  def group? name
+    @values_group[name]
   end
 
   def input src, key
@@ -110,6 +126,7 @@ class InputBind
         cdr.each do |name|
           block = @blocks[name]
           @values[name] = block ? (block.call val) : val
+          @values_group[@groups[name]] = true
         end
         next
       end
@@ -125,6 +142,7 @@ class InputBind
         cdr.each do |name|
           block = @blocks[name]
           @values[name] = block ? (block.call val) : val
+          @values_group[@groups[name]] = true
         end
         break
       end
@@ -176,14 +194,12 @@ class InputBind
 
       next tok if seq? tok
 
-      case tok
-      when Array
+      if tok.is_a? Array
         next parse_seq tok, default if valid_seq? tok
-
-        tok
-      else
-        [default, tok]
+        next tok
       end
+
+      [default, tok]
     end.compact
   end
 
@@ -194,26 +210,33 @@ class InputBind
     binds
   end
 
-  def group &block
-    @group += 1
+  def group name = nil, &block
     raise "no block supplied" unless block
+    prev_group = @group
+    if name
+      @group = name
+    else
+      @group_idx += 1
+      @group = @group_idx
+    end
     block.call
+    @group = prev_group
   end
 
-  def bind name, binds, default = :kd, &block
-    @binds[name] = binds
+  def bind name, binds, default = :kd, trees: @trees, &block
+    raise "Cannot use #{name} as a bind name" if @invalid_names.include? name
+    @binds[name] ||= []
+    @binds[name] << binds
     @blocks[name] = block
-    @groups[@group] ||= {}
-    insert_tree @groups[@group], @or_seqs, name, (parse_binds binds, default)
+    @groups[name] = @group
+
+    trees[@group] ||= {}
+    insert_tree trees[@group], @or_seqs, name, (parse_binds binds, default)
     define_singleton_method(name) { @values[name] }
   end
 
   def bind_or name, binds, default = :kd, &block
-    @binds[name] = binds
-    @blocks[name] = block
-    @groups_or[@group] ||= {}
-    insert_tree @groups_or[@group], @or_seqs, name, (parse_binds binds, default)
-    define_singleton_method(name) { @values[name] }
+    bind name, binds, default, trees: @trees_or, &block
   end
 end
 

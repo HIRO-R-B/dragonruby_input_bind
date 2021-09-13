@@ -23,7 +23,11 @@ def boot args
       bind_or :carrot, [:p], :kh
     }
 
-    group {
+    # Named groups are available
+    #   You can check if any of the binds in a group have activated with
+    #     group? :text_1
+    #   See `or_binds_draw` below
+    group :text_2 {
       bind_or :one,    [:t], :kh
       bind_or :two,    [:y], :kh
       bind_or :three,  [:u], :kh
@@ -121,10 +125,13 @@ def stars_draw args
 end
 
 def or_binds_draw args, inpt
-  args.outputs.labels << [0, 720, " apple: #{inpt.apple}", 255, 0, 0]
-  args.outputs.labels << [0, 700, "banana: #{inpt.banana}", 255, 0, 0]
-  args.outputs.labels << [0, 680, "carrot: #{inpt.carrot}", 255, 0, 0]
-  args.outputs.labels << [0, 660, "   one: #{inpt.one}", 255, 0, 0]
-  args.outputs.labels << [0, 640, "   two: #{inpt.two}", 255, 0, 0]
-  args.outputs.labels << [0, 620, " three: #{inpt.three}", 255, 0, 0]
+  rgb = [255, 0, 0]
+  args.outputs.labels << [0, 720, " apple: #{inpt.apple}", rgb]
+  args.outputs.labels << [0, 700, "banana: #{inpt.banana}", rgb]
+  args.outputs.labels << [0, 680, "carrot: #{inpt.carrot}", rgb]
+
+  rgb = [0, 255, 0] if inpt.group? :text_2
+  args.outputs.labels << [0, 660, "   one: #{inpt.one}", rgb]
+  args.outputs.labels << [0, 640, "   two: #{inpt.two}", rgb]
+  args.outputs.labels << [0, 620, " three: #{inpt.three}", rgb]
 end
