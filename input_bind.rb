@@ -122,6 +122,8 @@ class InputBind
   def check tree
     tree.each do |(src, key), cdr|
       val = input src, key
+      next if !val
+
       if cdr.is_a?(Array)
         cdr.each do |name|
           block = @blocks[name]
@@ -130,7 +132,8 @@ class InputBind
         end
         next
       end
-      val && (check cdr)
+
+      (check cdr)
     end
   end
 
@@ -138,6 +141,7 @@ class InputBind
     tree.each do |(src, key), cdr|
       val = input src, key
       next if !val
+
       if cdr.is_a?(Array)
         cdr.each do |name|
           block = @blocks[name]
@@ -146,6 +150,7 @@ class InputBind
         end
         break
       end
+
       ((check_or cdr) && break)
     end
 

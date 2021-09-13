@@ -6,13 +6,12 @@ def boot args
   # Don't actually serialize it...
   #   rename `_input_cfg.rb` to `input_cfg.rb` to see file binds in action
   args.state.inpt = InputBind.new args, file: 'app/input_cfg.rb' do
-    bind :jump,         [:|, :space, [:c1d, :a]]
-    bind :left_right,   [:left_right], :inp { |v| v == 0 ? nil : v }
-    bind :stomp,        [:|, :s, :down, :j, [:c1d, :x], [:c1d, :down]] # (:|) The 'or' op. Any one of these keys will stomp!
+    bind :jump,         [:|, :space, [:c1d, :a]] # (:|) Use the 'or' op, to have multiple keys binded to an action
+    bind :left_right,   [:left_right], :inp { |v| v == 0 ? nil : v } # Use blocks to fiddle the output a little
+    bind :stomp,        [:|, :s, :down, :j, [:c1d, :x], [:c1d, :down]] # (:|) Any one of these keys will stomp!
     bind :rocket,       [:|, :k, :space, [:c1h, :a], [:c1h, :r1]], :kh { |v| v && v.elapsed?(0.4.seconds) }
     bind :good_morning, [:q, :e, :space], :kh # Keep in mind, [:space, :q, :e] would break, since you have an action bound to space
-    bind :good_morning, [:l2, :r2, :a], :c1h # Apparently Multi bindings work, lol
-                                             #   Use with caution
+    bind :good_morning, [:l2, :r2, :a], :c1h # Apparently Multi bindings work, lol. Use with caution
     bind(:useless,      [:space]) { |v| v && v.zmod?(15) } # But this is ok though
 
     # bind_or groups let only one of the bindings at a time be active
