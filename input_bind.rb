@@ -1,9 +1,9 @@
-## Input handling made easier! Maybe
-#
+##
+# Input handling made easier! Maybe
 class InputBind
   attr_accessor :groups, :groups_or, :or_seqs, :binds, :blocks
 
-  def initialize args, &block
+  def initialize args, file: nil, &block
     assign args
 
     @group     = 0
@@ -49,6 +49,16 @@ class InputBind
       c2h: -> key { @c2h.send key },
       c2u: -> key { @c2u.send key }
     }
+
+    # Use the binds in the file if there even is a file
+    #   Defaults to the block otherwise :)
+    if file
+      binds = $gtk.read_file file
+      if binds
+        self.instance_eval binds
+        return self
+      end
+    end
 
     self.instance_eval &block if block
     self
@@ -124,29 +134,6 @@ class InputBind
     true
   end
 
-  def insert_tree tree, or_seqs, name, binds
-    if seq? binds[0]
-      binds.shift
-
-      last = binds.length - 1
-      binds.each_with_index do |bind, idx|
-        if (:|) == bind[0]
-          bind.shift
-          or_seqs << bind
-          bind = [:seq, or_seqs.length - 1]
-        end
-
-        if idx == last
-          tree[bind] ||= []
-          tree[bind] << name
-        else
-          tree[bind] ||= {}
-          tree = tree[bind]
-        end
-      end
-    end
-  end
-
   def seq? tok
     tok == (:|) || tok == (:&)
   end
@@ -159,19 +146,42 @@ class InputBind
     (seq? tok[0]) || (seq? tok[1])
   end
 
+  #               tree, or_seqs, name, binds
+  def insert_tree tree, or_seqs, name, (head, *tail)
+    raise "#{__method__}: improper bind #{[head, *tail]}" unless seq? head
+    last = tail.length - 1
+    tail.each_with_index do |bind, idx|
+      if (:|) == bind[0]
+        bind.shift
+        or_seqs << bind
+        bind = [:seq, or_seqs.length - 1]
+      end
+
+      if idx == last
+        tree[bind] ||= []
+        tree[bind] << name
+      else
+        tree[bind] ||= {}
+        tree = tree[bind]
+      end
+    end
+  end
+
   def parse_seq bind, default
     bind.map do |tok|
       if src? tok
         default = tok
         next
       end
+
       next tok if seq? tok
+
       case tok
       when Array
         next parse_seq tok, default if valid_seq? tok
 
         tok
-      when Symbol
+      else
         [default, tok]
       end
     end.compact

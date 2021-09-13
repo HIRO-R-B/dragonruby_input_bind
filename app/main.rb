@@ -4,7 +4,8 @@ require 'input_bind.rb'
 
 def boot args
   # Don't actually serialize it...
-  args.state.inpt = InputBind.new args do
+  #   rename `_input_cfg.rb` to `input_cfg.rb` to see file binds in action
+  args.state.inpt = InputBind.new args, file: 'app/input_cfg.rb' do
     bind :jump,         [:|, :space, [:c1d, :a]]
     bind :left_right,   [:left_right], :inp { |v| v == 0 ? nil : v }
     bind :stomp,        [:|, :s, :down, :j, [:c1d, :x], [:c1d, :down]] # (:|) The 'or' op. Any one of these keys will stomp!
